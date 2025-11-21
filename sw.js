@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rotas-v1';
+const CACHE_NAME = 'rotas-v2';
 const urlsToCache = [
   './',
   './index.html',
