@@ -242,18 +242,27 @@
             });
         }
 
-        // --- AQUI ESTAVA O ERRO: CORREÇÃO DE CONST/LET ---
         function calculateBestRoute(matrix, n) {
+            // Cria uma rota padrão (0, 1, 2, 3...) para caso o otimizador falhe
+            let defaultPath = Array.from({length: n}, (_, i) => i);
+            
             if (n <= 9) {
+                // Força bruta
                 const dest = Array.from({length: n-1}, (_,i) => i+1);
-                let best = null;
-                let min = Infinity; // AGORA É LET
+                let best = [...defaultPath]; // Começa com a rota padrão, não NULL
+                let min = Infinity; 
                 
                 function permute(arr, s) {
                     if (s === arr.length) {
                         const path = [0, ...arr];
                         let t = 0;
-                        for (let i = 0; i < path.length - 1; i++) t += matrix[path[i]][path[i+1]];
+                        for (let i = 0; i < path.length - 1; i++) {
+                            // Se o valor for undefined/null, trata como infinito
+                            let dist = matrix[path[i]][path[i+1]];
+                            if (typeof dist !== 'number') dist = Infinity;
+                            t += dist;
+                        }
+                        // Se achou uma rota válida menor, atualiza
                         if (t < min) { min = t; best = [...path]; }
                         return;
                     }
@@ -266,16 +275,28 @@
                 permute(dest, 0);
                 return { optimalIndices: best };
             } else {
+                // Vizinho mais próximo
                 const visited = new Set([0]);
                 const path = [0];
-                let cur = 0; // AGORA É LET
+                let cur = 0; 
                 while (visited.size < n) {
-                    let min = Infinity; // LET
-                    let next = -1;      // LET
+                    let min = Infinity; 
+                    let next = -1;
                     for (let j = 1; j < n; j++) {
-                        if (!visited.has(j) && matrix[cur][j] < min) { min = matrix[cur][j]; next = j; }
+                        if (!visited.has(j)) {
+                            let dist = matrix[cur][j];
+                            if (typeof dist !== 'number') dist = Infinity;
+                            
+                            if (dist < min) { min = dist; next = j; }
+                        }
                     }
-                    if (next === -1) break;
+                    // Se não achou vizinho (caminho bloqueado), pega o primeiro disponível
+                    if (next === -1) {
+                        for (let k = 1; k < n; k++) {
+                            if (!visited.has(k)) { next = k; break; }
+                        }
+                    }
+                    
                     path.push(next); visited.add(next); cur = next;
                 }
                 return { optimalIndices: path };
