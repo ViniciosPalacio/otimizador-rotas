@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0d6efd"> <title>Otimizador de Rotas GPS</title>
+    <meta name="theme-color" content="#0d6efd">
+    
+    <title>Otimizador de Rotas GPS</title>
     
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -18,11 +20,7 @@
         .address-input { margin-bottom: 10px; display: flex; gap: 5px; }
         #result, #history { margin-top: 20px; padding: 15px; background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h1 { color: #0d6efd; font-size: 1.8rem; }
-        .btn-action { width: 100%; margin-bottom: 10px; }
-        .history-item { cursor: pointer; padding: 10px; border-bottom: 1px solid #eee; }
-        .history-item:active { background: #e9ecef; }
         
-        /* Botão flutuante para navegar (Estilo App) */
         #navigateBtn {
             display: none;
             position: fixed;
@@ -64,7 +62,6 @@
 
         <div id="status" class="mt-3"></div>
         <div id="map"></div>
-
         <div id="result"></div>
 
         <button id="navigateBtn" class="btn btn-success btn-lg rounded-pill" onclick="openNativeMaps()">
@@ -91,9 +88,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(req => console.log('Service Worker registrado!', req))
-                    .catch(err => console.log('Falha ao registrar Service Worker', err));
+                navigator.serviceWorker.register('./sw.js');
             });
         }
     </script>
@@ -113,8 +108,7 @@
                 zoom: 10,
                 mapTypeId: 'roadmap',
                 disableDefaultUI: false,
-                zoomControl: true,
-                streetViewControl: false
+                zoomControl: true
             });
 
             directionsService = new google.maps.DirectionsService();
@@ -130,183 +124,104 @@
             startLiveTracking(); 
         }
 
-        // --- FUNÇÕES DE GPS E LOCALIZAÇÃO ---
-
         function useMyLocation() {
             const btn = document.querySelector('button[onclick="useMyLocation()"]');
-            const input = document.getElementById('startPoint');
+            if (!navigator.geolocation) { showStatus("GPS não suportado.", "danger"); return; }
             
-            if (!navigator.geolocation) {
-                showStatus("Seu navegador não suporta GPS.", "danger");
-                return;
-            }
-            
-            // Feedback visual
             const originalIcon = btn.innerHTML;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
             btn.disabled = true;
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const pos = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                    };
-                    
-                    map.setCenter(pos);
-                    map.setZoom(15);
+            navigator.geolocation.getCurrentPosition((position) => {
+                const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+                map.setCenter(pos); map.setZoom(15);
 
-                    // Cria marcador visual
-                    if (userMarker) userMarker.setMap(null);
-                    userMarker = new google.maps.Marker({
-                        position: pos,
-                        map: map,
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 8,
-                            fillColor: "#4285F4",
-                            fillOpacity: 1,
-                            strokeColor: "white",
-                            strokeWeight: 2,
-                        },
-                        title: "Sua Localização"
-                    });
+                if (userMarker) userMarker.setMap(null);
+                userMarker = new google.maps.Marker({
+                    position: pos, map: map,
+                    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#4285F4", fillOpacity: 1, strokeColor: "white", strokeWeight: 2 }
+                });
 
-                    geocoder.geocode({ location: pos }, (results, status) => {
-                        if (status === "OK" && results[0]) {
-                            document.getElementById('startPoint').value = results[0].formatted_address;
-                            document.getElementById('startPoint').dataset.lat = pos.lat;
-                            document.getElementById('startPoint').dataset.lng = pos.lng;
-                            showStatus("Localização encontrada!", "success");
-                        } else {
-                            document.getElementById('startPoint').value = `${pos.lat}, ${pos.lng}`;
-                        }
-                        btn.innerHTML = originalIcon;
-                        btn.disabled = false;
-                    });
-                },
-                () => {
-                    showStatus("Erro ao obter localização. Verifique o GPS.", "danger");
-                    btn.innerHTML = originalIcon;
-                    btn.disabled = false;
-                },
-                { enableHighAccuracy: true }
-            );
+                geocoder.geocode({ location: pos }, (results, status) => {
+                    if (status === "OK" && results[0]) {
+                        document.getElementById('startPoint').value = results[0].formatted_address;
+                        showStatus("Localização encontrada!", "success");
+                    } else {
+                        document.getElementById('startPoint').value = `${pos.lat}, ${pos.lng}`;
+                    }
+                    btn.innerHTML = originalIcon; btn.disabled = false;
+                });
+            }, () => {
+                showStatus("Erro no GPS. Verifique permissões.", "danger");
+                btn.innerHTML = originalIcon; btn.disabled = false;
+            }, { enableHighAccuracy: true });
         }
 
         function startLiveTracking() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition((position) => {
-                    const pos = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                    };
-
+                    const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
                     if (!userMarker) {
                         userMarker = new google.maps.Marker({
-                            position: pos,
-                            map: map,
-                            icon: {
-                                path: google.maps.SymbolPath.CIRCLE,
-                                scale: 10,
-                                fillColor: "#4285F4",
-                                fillOpacity: 1,
-                                strokeColor: "white",
-                                strokeWeight: 2,
-                            },
-                            title: "Você está aqui"
+                            position: pos, map: map,
+                            icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "#4285F4", fillOpacity: 1, strokeColor: "white", strokeWeight: 2 },
                         });
-                    } else {
-                        userMarker.setPosition(pos);
-                    }
+                    } else { userMarker.setPosition(pos); }
                 }, null, { enableHighAccuracy: true });
             }
         }
 
-        // --- GERENCIAMENTO DE INPUTS ---
-
         function addAddress() {
             const div = document.createElement('div');
             div.className = 'address-input';
-            div.innerHTML = `
-                <input type="text" class="form-control address" placeholder="Próximo destino">
-                <button class="btn btn-outline-danger" onclick="removeInput(this)"><i class="bi bi-x"></i></button>
-            `;
+            div.innerHTML = `<input type="text" class="form-control address" placeholder="Próximo destino"><button class="btn btn-outline-danger" onclick="removeInput(this)"><i class="bi bi-x"></i></button>`;
             document.getElementById('addresses').appendChild(div);
         }
 
         function removeInput(btn) {
-            if (document.querySelectorAll('.address').length > 2) {
-                btn.parentElement.remove();
-            } else {
-                btn.previousElementSibling.value = ''; 
-            }
+            if (document.querySelectorAll('.address').length > 2) btn.parentElement.remove();
+            else btn.previousElementSibling.value = '';
         }
 
-        // --- CÁLCULO DE ROTA ---
-
+        // --- LÓGICA ECONÔMICA (Lotes de 5) ---
         async function calculateRoute() {
-    const inputs = document.querySelectorAll('.address');
-    // Pega todos os endereços (Partida + Destinos)
-    let allAddresses = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
-    
-    if (allAddresses.length < 2) {
-        showStatus('Adicione partida e destinos!', 'warning');
-        return;
-    }
+            const inputs = document.querySelectorAll('.address');
+            let allAddresses = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+            
+            if (allAddresses.length < 2) { showStatus('Adicione partida e destinos!', 'warning'); return; }
 
-    document.getElementById('navigateBtn').style.display = 'none';
-    showStatus('Calculando rota em etapas (Modo Econômico)...', 'info');
+            document.getElementById('navigateBtn').style.display = 'none';
+            showStatus('Calculando rota em etapas...', 'info');
 
-    // --- A LÓGICA DO "LOTE DE 5" ---
-    const BATCH_SIZE = 5; // Define o tamanho do lote (pode aumentar para 8 se quiser)
-    let finalRoute = [allAddresses[0]]; // Começa com o ponto de partida
-    let remainingAddresses = allAddresses.slice(1); // Todos os destinos
-    
-    // Enquanto houver destinos na lista
-    while (remainingAddresses.length > 0) {
-        // 1. Define o novo ponto de partida (o último da rota atual)
-        let currentStart = finalRoute[finalRoute.length - 1];
-        
-        // 2. Pega os próximos X destinos para calcular
-        let currentBatch = remainingAddresses.slice(0, BATCH_SIZE);
-        
-        // 3. Cria o grupo para a API (Partida atual + Lote)
-        let apiCluster = [currentStart, ...currentBatch];
-        
-        showStatus(`Otimizando trecho de ${currentStart.split(',')[0]}...`, 'info');
+            const BATCH_SIZE = 5;
+            let finalRoute = [allAddresses[0]];
+            let remainingAddresses = allAddresses.slice(1);
+            
+            while (remainingAddresses.length > 0) {
+                let currentStart = finalRoute[finalRoute.length - 1];
+                let currentBatch = remainingAddresses.slice(0, BATCH_SIZE);
+                let apiCluster = [currentStart, ...currentBatch];
+                
+                showStatus(`Processando trecho de ${currentStart.split(',')[0]}...`, 'info');
 
-        // 4. Pede a matriz só desse pedacinho (Barato!)
-        let matrix = await getDistanceMatrix(apiCluster);
-        
-        if (!matrix) {
-            showStatus('Erro na API. Verifique cotas.', 'danger');
-            return;
+                let matrix = await getDistanceMatrix(apiCluster);
+                if (!matrix) { showStatus('Erro na API. Verifique cotas.', 'danger'); return; }
+
+                let { optimalIndices } = calculateBestRoute(matrix, apiCluster.length);
+                
+                for (let i = 1; i < optimalIndices.length; i++) {
+                    let realAddress = apiCluster[optimalIndices[i]];
+                    finalRoute.push(realAddress);
+                }
+
+                remainingAddresses = remainingAddresses.slice(BATCH_SIZE);
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            optimizedOrderList = finalRoute;
+            drawRoute(finalRoute);
+            showStatus(`Rota de ${finalRoute.length} pontos calculada!`, 'success');
         }
-
-        // 5. Otimiza esse pedacinho
-        let { optimalIndices } = calculateBestRoute(matrix, apiCluster.length);
-        
-        // 6. Adiciona o resultado na rota final (ignorando o índice 0 que é o ponto de partida repetido)
-        // optimalIndices retorna algo como [0, 2, 1, 3]. O 0 é o currentStart.
-        for (let i = 1; i < optimalIndices.length; i++) {
-            let realAddress = apiCluster[optimalIndices[i]];
-            finalRoute.push(realAddress);
-        }
-
-        // 7. Remove os endereços já processados da lista de espera
-        remainingAddresses = remainingAddresses.slice(BATCH_SIZE);
-        
-        // Pequena pausa para não floodar a API (opcional, mas bom para segurança)
-        await new Promise(r => setTimeout(r, 200));
-    }
-
-    // --- FIM DO LOOP ---
-
-    optimizedOrderList = finalRoute;
-    drawRoute(finalRoute);
-    showStatus(`Rota de ${finalRoute.length} pontos calculada com sucesso!`, 'success');
-}
 
         function getDistanceMatrix(points) {
             return new Promise(resolve => {
@@ -325,19 +240,19 @@
             });
         }
 
+        // --- CORREÇÃO DO ERRO DE CONSTANTE AQUI ---
         function calculateBestRoute(matrix, n) {
             if (n <= 9) {
                 const dest = Array.from({length: n-1}, (_,i) => i+1);
-                let best = null, min = Infinity;
+                let best = null;
+                let min = Infinity; // LET, não CONST
                 
                 function permute(arr, s) {
                     if (s === arr.length) {
                         const path = [0, ...arr];
                         let t = 0;
-                        for (let i = 0; i < path.length - 1; i++) {
-                            t += matrix[path[i]][path[i+1]];
-                        }
-                        if (t < min) { min = t; best = path; }
+                        for (let i = 0; i < path.length - 1; i++) t += matrix[path[i]][path[i+1]];
+                        if (t < min) { min = t; best = [...path]; }
                         return;
                     }
                     for (let i = s; i < arr.length; i++) {
@@ -349,13 +264,14 @@
                 permute(dest, 0);
                 return { optimalIndices: best };
             } else {
-                const visited = new Set([0]), path = [0], cur = 0;
+                const visited = new Set([0]);
+                const path = [0];
+                let cur = 0; // LET, não CONST
                 while (visited.size < n) {
-                    let min = Infinity, next = -1;
+                    let min = Infinity; 
+                    let next = -1;
                     for (let j = 1; j < n; j++) {
-                        if (!visited.has(j) && matrix[cur][j] < min) {
-                            min = matrix[cur][j]; next = j;
-                        }
+                        if (!visited.has(j) && matrix[cur][j] < min) { min = matrix[cur][j]; next = j; }
                     }
                     if (next === -1) break;
                     path.push(next); visited.add(next); cur = next;
@@ -366,21 +282,17 @@
 
         function drawRoute(routePoints) {
             if (routePoints.length < 2) return;
-            
             directionsService.route({
                 origin: routePoints[0],
                 destination: routePoints[routePoints.length - 1],
                 waypoints: routePoints.slice(1, -1).map(loc => ({ location: loc, stopover: true })),
-                travelMode: 'DRIVING',
-                optimizeWaypoints: false 
+                travelMode: 'DRIVING', optimizeWaypoints: false 
             }, (result, status) => {
                 if (status === 'OK') {
                     directionsRenderer.setDirections(result);
                     showResult(result, routePoints);
                     document.getElementById('navigateBtn').style.display = 'block';
-                } else {
-                    showStatus('Não foi possível desenhar a rota: ' + status, 'warning');
-                }
+                } else { showStatus('Erro ao desenhar: ' + status, 'warning'); }
             });
         }
 
@@ -388,64 +300,38 @@
             const legs = result.routes[0].legs;
             let totalSec = 0, totalDist = 0;
             let html = '<h5>Ordem de Parada:</h5><ul class="list-group list-group-numbered list-group-flush">';
-            
-            legs.forEach((leg, index) => {
-                html += `<li class="list-group-item">
-                    <strong>${leg.end_address.split(',')[0]}</strong>
-                    <br><small class="text-muted">Tempo: ${leg.duration.text} (${leg.distance.text})</small>
-                </li>`;
-                totalSec += leg.duration.value; 
-                totalDist += leg.distance.value;
+            legs.forEach((leg) => {
+                html += `<li class="list-group-item"><strong>${leg.end_address.split(',')[0]}</strong><br><small class="text-muted">Tempo: ${leg.duration.text} (${leg.distance.text})</small></li>`;
+                totalSec += leg.duration.value; totalDist += leg.distance.value;
             });
-
             const totalKm = (totalDist/1000).toFixed(1);
-            const totalMin = Math.round(totalSec/60);
-            const horas = Math.floor(totalMin / 60);
-            const minutos = totalMin % 60;
+            const horas = Math.floor(Math.round(totalSec/60) / 60);
+            const minutos = Math.round(totalSec/60) % 60;
             const tempoTexto = horas > 0 ? `${horas}h ${minutos}min` : `${minutos}min`;
-
-            html += `</ul><div class="mt-3 alert alert-primary">
-                <strong>Total:</strong> ${tempoTexto} • ${totalKm} km
-            </div>`;
-            
+            html += `</ul><div class="mt-3 alert alert-primary"><strong>Total:</strong> ${tempoTexto} • ${totalKm} km</div>`;
             document.getElementById('result').innerHTML = html;
-
-            lastRouteData = {
-                key: enderecos.join('|'),
-                nome: `Rota ${new Date().toLocaleDateString('pt-BR')} - ${enderecos.length} pontos`,
-                data: new Date().toLocaleString('pt-BR'),
-                enderecos: enderecos,
-                tempo_texto: tempoTexto,
-                distancia_km: totalKm
-            };
-            
+            lastRouteData = { key: enderecos.join('|'), nome: `Rota ${new Date().toLocaleDateString('pt-BR')}`, data: new Date().toLocaleString('pt-BR'), enderecos, tempo_texto: tempoTexto, distancia_km: totalKm };
             document.getElementById('saveBtn').disabled = false;
             saveToHistory(lastRouteData);
         }
 
+        // --- CORREÇÃO DO LINK DO GOOGLE MAPS ---
         function openNativeMaps() {
             if (!optimizedOrderList || optimizedOrderList.length < 2) return;
-            
             const origin = encodeURIComponent(optimizedOrderList[0]);
             const destination = encodeURIComponent(optimizedOrderList[optimizedOrderList.length - 1]);
-            
             let waypoints = "";
             if (optimizedOrderList.length > 2) {
                 const intermediate = optimizedOrderList.slice(1, -1);
                 waypoints = "&waypoints=" + intermediate.map(p => encodeURIComponent(p)).join('|');
             }
-
             const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints}&travelmode=driving`;
-            
             window.open(url, '_blank');
         }
 
         function showStatus(msg, type = 'info') {
             const el = document.getElementById('status');
-            el.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${msg}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>`;
+            el.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show">${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
         }
 
         function saveToHistory(route) {
@@ -461,66 +347,41 @@
             const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
             const list = document.getElementById('historyList');
             list.innerHTML = history.length ? '' : '<p class="text-muted text-center mt-2">Nenhuma rota salva.</p>';
-            
             history.forEach(route => {
                 const div = document.createElement('div');
                 div.className = 'history-item';
                 div.onclick = () => loadRouteFromData(route);
-                div.innerHTML = `
-                    <div class="d-flex justify-content-between">
-                        <strong>${route.nome}</strong>
-                        <span class="badge bg-secondary">${route.distancia_km}km</span>
-                    </div>
-                    <small class="text-muted">${route.data}</small>
-                `;
+                div.innerHTML = `<div class="d-flex justify-content-between"><strong>${route.nome}</strong><span class="badge bg-secondary">${route.distancia_km}km</span></div><small class="text-muted">${route.data}</small>`;
                 list.appendChild(div);
             });
         }
 
         function getFromHistoryByKey(key) {
-            const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-            return history.find(r => r.key === key);
+            return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]').find(r => r.key === key);
         }
 
         function loadRouteFromData(route) {
             document.getElementById('addresses').innerHTML = '';
-            
             route.enderecos.forEach((end, i) => {
                 if(i === 0) {
                     const div = document.createElement('div');
-                    div.innerHTML = `
-                        <label class="form-label fw-bold">Ponto de Partida</label>
-                        <div class="address-input">
-                            <input type="text" class="form-control address" id="startPoint" value="${end}">
-                            <button class="btn btn-outline-primary" onclick="useMyLocation()"><i class="bi bi-geo-alt-fill"></i></button>
-                        </div>
-                        <label class="form-label fw-bold mt-2">Destinos</label>
-                    `;
+                    div.innerHTML = `<label class="form-label fw-bold">Ponto de Partida</label><div class="address-input"><input type="text" class="form-control address" id="startPoint" value="${end}"><button class="btn btn-outline-primary" onclick="useMyLocation()"><i class="bi bi-geo-alt-fill"></i></button></div><label class="form-label fw-bold mt-2">Destinos</label>`;
                     document.getElementById('addresses').appendChild(div);
                 } else {
                     const div = document.createElement('div');
                     div.className = 'address-input';
-                    div.innerHTML = `
-                        <input type="text" class="form-control address" value="${end}">
-                        <button class="btn btn-outline-danger" onclick="removeInput(this)"><i class="bi bi-x"></i></button>
-                    `;
+                    div.innerHTML = `<input type="text" class="form-control address" value="${end}"><button class="btn btn-outline-danger" onclick="removeInput(this)"><i class="bi bi-x"></i></button>`;
                     document.getElementById('addresses').appendChild(div);
                 }
             });
-
             optimizedOrderList = route.enderecos;
             drawRoute(route.enderecos);
-            showStatus('Rota recuperada do histórico.', 'success');
+            showStatus('Rota recuperada!', 'success');
             window.scrollTo(0, 0);
         }
 
-        function clearHistory() {
-            if (confirm('Apagar tudo?')) {
-                localStorage.removeItem(HISTORY_KEY);
-                loadHistory();
-            }
-        }
-
+        function clearHistory() { if (confirm('Apagar tudo?')) { localStorage.removeItem(HISTORY_KEY); loadHistory(); } }
+        
         function saveRoute() {
             if (!lastRouteData) return;
             const blob = new Blob([JSON.stringify(lastRouteData, null, 2)], { type: 'application/json' });
