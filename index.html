@@ -246,38 +246,67 @@
         // --- CÁLCULO DE ROTA ---
 
         async function calculateRoute() {
-            const inputs = document.querySelectorAll('.address');
-            const addresses = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
-            
-            if (addresses.length < 2) {
-                showStatus('Adicione um ponto de partida e pelo menos um destino!', 'warning');
-                return;
-            }
+    const inputs = document.querySelectorAll('.address');
+    // Pega todos os endereços (Partida + Destinos)
+    let allAddresses = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+    
+    if (allAddresses.length < 2) {
+        showStatus('Adicione partida e destinos!', 'warning');
+        return;
+    }
 
-            document.getElementById('navigateBtn').style.display = 'none';
-            showStatus('Calculando a melhor rota...', 'info');
+    document.getElementById('navigateBtn').style.display = 'none';
+    showStatus('Calculando rota em etapas (Modo Econômico)...', 'info');
 
-            const cacheKey = addresses.join('|');
-            const cached = getFromHistoryByKey(cacheKey);
-            if (cached) {
-                loadRouteFromData(cached);
-                return;
-            }
+    // --- A LÓGICA DO "LOTE DE 5" ---
+    const BATCH_SIZE = 5; // Define o tamanho do lote (pode aumentar para 8 se quiser)
+    let finalRoute = [allAddresses[0]]; // Começa com o ponto de partida
+    let remainingAddresses = allAddresses.slice(1); // Todos os destinos
+    
+    // Enquanto houver destinos na lista
+    while (remainingAddresses.length > 0) {
+        // 1. Define o novo ponto de partida (o último da rota atual)
+        let currentStart = finalRoute[finalRoute.length - 1];
+        
+        // 2. Pega os próximos X destinos para calcular
+        let currentBatch = remainingAddresses.slice(0, BATCH_SIZE);
+        
+        // 3. Cria o grupo para a API (Partida atual + Lote)
+        let apiCluster = [currentStart, ...currentBatch];
+        
+        showStatus(`Otimizando trecho de ${currentStart.split(',')[0]}...`, 'info');
 
-            const matrix = await getDistanceMatrix(addresses);
-            if (!matrix) {
-                showStatus('Erro ao conectar com Google Maps API.', 'danger');
-                return;
-            }
-
-            const { optimalIndices } = calculateBestRoute(matrix, addresses.length);
-            
-            const optimalOrder = optimalIndices.map(i => addresses[i]);
-            optimizedOrderList = optimalOrder;
-
-            drawRoute(optimalOrder);
-            showStatus('Rota otimizada com sucesso!', 'success');
+        // 4. Pede a matriz só desse pedacinho (Barato!)
+        let matrix = await getDistanceMatrix(apiCluster);
+        
+        if (!matrix) {
+            showStatus('Erro na API. Verifique cotas.', 'danger');
+            return;
         }
+
+        // 5. Otimiza esse pedacinho
+        let { optimalIndices } = calculateBestRoute(matrix, apiCluster.length);
+        
+        // 6. Adiciona o resultado na rota final (ignorando o índice 0 que é o ponto de partida repetido)
+        // optimalIndices retorna algo como [0, 2, 1, 3]. O 0 é o currentStart.
+        for (let i = 1; i < optimalIndices.length; i++) {
+            let realAddress = apiCluster[optimalIndices[i]];
+            finalRoute.push(realAddress);
+        }
+
+        // 7. Remove os endereços já processados da lista de espera
+        remainingAddresses = remainingAddresses.slice(BATCH_SIZE);
+        
+        // Pequena pausa para não floodar a API (opcional, mas bom para segurança)
+        await new Promise(r => setTimeout(r, 200));
+    }
+
+    // --- FIM DO LOOP ---
+
+    optimizedOrderList = finalRoute;
+    drawRoute(finalRoute);
+    showStatus(`Rota de ${finalRoute.length} pontos calculada com sucesso!`, 'success');
+}
 
         function getDistanceMatrix(points) {
             return new Promise(resolve => {
