@@ -95,7 +95,7 @@
 
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAHNQDr1ewrFjbsTM1VAtTeh6se_5hHRoU&libraries=places&callback=initMap"></script>
     
-    <script>
+    <<script>
         let map, directionsService, directionsRenderer, distanceMatrixService, geocoder;
         let lastRouteData = null;
         let optimizedOrderList = [];
@@ -139,7 +139,8 @@
                 if (userMarker) userMarker.setMap(null);
                 userMarker = new google.maps.Marker({
                     position: pos, map: map,
-                    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#4285F4", fillOpacity: 1, strokeColor: "white", strokeWeight: 2 }
+                    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#4285F4", fillOpacity: 1, strokeColor: "white", strokeWeight: 2 },
+                    title: "Você está aqui"
                 });
 
                 geocoder.geocode({ location: pos }, (results, status) => {
@@ -209,6 +210,7 @@
 
                 let { optimalIndices } = calculateBestRoute(matrix, apiCluster.length);
                 
+                // Adiciona os pontos ordenados (pulando o 0 que é a partida)
                 for (let i = 1; i < optimalIndices.length; i++) {
                     let realAddress = apiCluster[optimalIndices[i]];
                     finalRoute.push(realAddress);
@@ -240,12 +242,12 @@
             });
         }
 
-        // --- CORREÇÃO DO ERRO DE CONSTANTE AQUI ---
+        // --- AQUI ESTAVA O ERRO: CORREÇÃO DE CONST/LET ---
         function calculateBestRoute(matrix, n) {
             if (n <= 9) {
                 const dest = Array.from({length: n-1}, (_,i) => i+1);
                 let best = null;
-                let min = Infinity; // LET, não CONST
+                let min = Infinity; // AGORA É LET
                 
                 function permute(arr, s) {
                     if (s === arr.length) {
@@ -266,10 +268,10 @@
             } else {
                 const visited = new Set([0]);
                 const path = [0];
-                let cur = 0; // LET, não CONST
+                let cur = 0; // AGORA É LET
                 while (visited.size < n) {
-                    let min = Infinity; 
-                    let next = -1;
+                    let min = Infinity; // LET
+                    let next = -1;      // LET
                     for (let j = 1; j < n; j++) {
                         if (!visited.has(j) && matrix[cur][j] < min) { min = matrix[cur][j]; next = j; }
                     }
@@ -315,7 +317,6 @@
             saveToHistory(lastRouteData);
         }
 
-        // --- CORREÇÃO DO LINK DO GOOGLE MAPS ---
         function openNativeMaps() {
             if (!optimizedOrderList || optimizedOrderList.length < 2) return;
             const origin = encodeURIComponent(optimizedOrderList[0]);
@@ -325,6 +326,7 @@
                 const intermediate = optimizedOrderList.slice(1, -1);
                 waypoints = "&waypoints=" + intermediate.map(p => encodeURIComponent(p)).join('|');
             }
+            // URL Universal corrigida
             const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints}&travelmode=driving`;
             window.open(url, '_blank');
         }
